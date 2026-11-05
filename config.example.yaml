@@ -1,0 +1,68 @@
+# ── Text-QA CoT distillation pipeline: production example ────────────────────
+# Copy to config.yaml (gitignored) and adjust paths. Endpoint, model and API
+# key are NEVER stored in this file — export them instead:
+#
+#   export TEXT_COT_API_BASES="http://host1:8000/v1,http://host2:8000/v1"
+#   export TEXT_COT_API_MODEL="your-teacher-model"
+#   export TEXT_COT_API_KEY="sk-..."
+#
+# Relative paths resolve against the current working directory.
+
+api:
+  # Non-secret tunables only. Endpoint/model/key come from the environment.
+  max_concurrency: 16              # per endpoint; total = endpoints x this
+  rpm: null                        # optional global requests/minute cap
+  timeout: 900
+  max_retries: 5
+  proxy: null                      # e.g. "http://127.0.0.1:7890"; null = bypass proxy env
+
+sampling:
+  n_samples: 16                    # CoT candidates per question (rejection sampling)
+  temperatures: [0.6]              # teacher's recommended temp; diversity from n
+  top_p: 0.95
+  max_tokens: 16384                # must exceed the longest expected CoT
+  seed_base: 0                     # deterministic per (uid, sample) seed
+  send_seed: true                  # set false if the gateway rejects `seed`
+  extra_body: {}
+
+ingest:
+  max_records: 0                   # 0 = all; useful cap for smoke configs
+  dedup_questions: false           # text-hash dedup can drop legitimate repeats
+  max_question_chars: 0            # 0 = no limit
+
+generate:
+  # System prompt that requests the <think>...</think> + <answer>...</answer>
+  # format. Align it with whatever your student model sees at RL/SFT time.
+  # NOTE: some quantized deployments degenerate when tag instructions appear in
+  # the *user* message — keep user_suffix empty unless validated.
+  system_prompt: |
+    You are a reasoning assistant. Read the question carefully. Explain your reasoning inside <think></think> tags, then put your final answer within <answer> </answer> tags. For multiple-choice questions, give only the single correct option letter. For numerical questions, give the numerical value. For other questions, give a concise direct answer. Your response must end in exactly this form: <think>you thinking process</think>\n<answer>your final answer</answer>.
+  user_suffix: ""
+
+verify:
+  select: shortest_correct         # shortest_correct | first_correct | majority_then_shortest
+  trace_source: content            # content (polished derivation) | reasoning (scratch pad)
+  strip_meta: true                 # drop "We need answer..." style self-instruction lines
+  min_reasoning_chars: 80
+  max_reasoning_chars: 24000
+  max_repeat_ratio: 0.35
+  reject_truncated: true
+  reject_refusal: true
+  require_reasoning: true          # false = allow answer-only traces (no CoT)
+  freeform_min_f1: 0.75            # token-F1 threshold for free-form answers
+  dedup_traces: true               # drop questions whose best trace duplicates another's
+  min_correct: 0                   # require >= N correct candidates per question
+  max_correct: null                # drop questions with more than N correct (easy)
+  drop_too_easy: false             # drop questions where all samples are correct
+
+output:
+  dir: runs/production/out
+  name: text_cot
+  split_by_source: false           # also write <source>.json/.parquet per dataset
+  think_open: "<think>"
+  think_close: "</think>"
+
+paths:
+  inputs: []                       # e.g. [data/qa/my_dataset.parquet] (verl RL schema
+                                   # or plain question/answer jsonl/json supported)
+  work_dir: runs/production

@@ -1,0 +1,52 @@
+# ── Smoke-test example: ~24 questions x 2 samples, tiny budget ───────────────
+# Copy to config.smoke.yaml (gitignored). Export the API env vars first
+# (see config.example.yaml header).
+
+api:
+  max_concurrency: 8
+  timeout: 600
+  max_retries: 3
+
+sampling:
+  n_samples: 2
+  temperatures: [0.6]
+  top_p: 0.95
+  max_tokens: 8192
+  seed_base: 0
+  send_seed: true
+  extra_body: {}
+
+ingest:
+  max_records: 24
+
+generate:
+  system_prompt: |
+    You are a reasoning assistant. Read the question carefully. Explain your reasoning inside <think></think> tags, then put your final answer within <answer> </answer> tags. For multiple-choice questions, give only the single correct option letter. For numerical questions, give the numerical value. For other questions, give a concise direct answer. Your response must end in exactly this form: <think>you thinking process</think>\n<answer>your final answer</answer>.
+  user_suffix: ""
+
+verify:
+  select: shortest_correct
+  trace_source: content
+  strip_meta: true
+  min_reasoning_chars: 40
+  max_reasoning_chars: 24000
+  max_repeat_ratio: 0.35
+  reject_truncated: true
+  reject_refusal: true
+  require_reasoning: false
+  freeform_min_f1: 0.75
+  dedup_traces: true
+  min_correct: 0
+  max_correct: null
+  drop_too_easy: false
+
+output:
+  dir: runs/smoke/out
+  name: text_cot
+  split_by_source: false
+  think_open: "<think>"
+  think_close: "</think>"
+
+paths:
+  inputs: []                       # point at any small parquet/jsonl QA file
+  work_dir: runs/smoke

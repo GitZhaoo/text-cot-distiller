@@ -1,0 +1,13 @@
+# local working configs (contain machine-specific paths; never commit)
+config.yaml
+config.smoke.yaml
+config.*.local.yaml
+
+# run artifacts
+runs/
+logs/
+
+# python
+__pycache__/
+*.pyc
+.venv/
